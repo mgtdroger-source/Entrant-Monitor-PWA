@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tracking Monitor PWA v0.14</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Tracking Monitor">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{--ink:#111827;--muted:#64748b;--line:#cbd5e1;--blue:#2563eb;--green:#16a34a;--orange:#f59e0b;--grey:#94a3b8;--red:#dc2626;--dot-size:14px}
+*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:#e5e7eb}
+button,select{font:inherit}button{cursor:pointer}
+#app{height:100%;display:grid;grid-template-rows:58px 1fr}
+header{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:8px;padding:8px 10px;background:#fff;border-bottom:1px solid var(--line);z-index:1200}
+.top-btn{min-height:40px;border:1px solid #9ca3af;border-radius:9px;background:#fff;padding:7px 12px;font-weight:700}
+.top-btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+body.install-available header{grid-template-columns:auto auto auto 1fr auto}
+#installBtn{background:#16a34a;border-color:#16a34a;color:#fff}
+.title-wrap{min-width:0;text-align:center}.title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main{position:relative;min-width:0;min-height:0}#map{height:100%;width:100%}
+#mapStatus{position:absolute;z-index:800;top:10px;left:50%;transform:translateX(-50%);max-width:calc(100% - 100px);background:rgba(255,255,255,.96);border:1px solid var(--line);border-radius:10px;padding:8px 12px;box-shadow:0 2px 8px rgba(0,0,0,.12);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-backdrop{position:absolute;inset:0;z-index:1400;background:rgba(15,23,42,.24);display:none;align-items:flex-start;justify-content:center;padding:70px 12px 12px}.card-backdrop.open{display:flex}
+.card{width:min(430px,calc(100vw - 24px));max-height:calc(100dvh - 90px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 36px rgba(0,0,0,.24);padding:14px;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.card h2{font-size:18px;margin:0}.close-btn{border:1px solid #9ca3af;background:#fff;border-radius:8px;min-height:36px;padding:6px 10px;font-weight:700}
+.pill{border:1px solid var(--line);border-radius:999px;background:#f8fafc;padding:7px 10px;font-size:12px;margin-bottom:12px}
+.menu-list{display:grid;gap:7px}.menu-btn{width:100%;min-height:42px;text-align:left;border:1px solid #9ca3af;border-radius:9px;background:#fff;padding:8px 10px;font-weight:700}.menu-btn.active{background:#dbeafe;border-color:#60a5fa}
+.section-title{font-size:12px;font-weight:800;color:#475569;text-transform:uppercase;letter-spacing:.04em;margin:14px 0 7px}
+#entrantsCard{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+#entrantList{padding-right:4px}
+
+.setting-row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #e2e8f0}.segmented{display:flex;gap:4px}.segmented button{min-width:48px;min-height:36px;border:1px solid #9ca3af;border-radius:8px;background:#fff;font-weight:700}.segmented button.active{background:#dbeafe;border-color:#60a5fa}
+.placeholder{padding:14px;border:1px dashed #94a3b8;border-radius:10px;background:#f8fafc;color:#475569;line-height:1.5}
+.control-icon{transform:translate(-50%,-50%);min-width:36px;height:20px;padding:0 5px;border-radius:999px;display:grid;place-items:center;border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.38);font-size:8px;font-weight:800;color:#fff;white-space:nowrap;background:#dc2626}
+.entrant-hit{position:relative;width:58px;height:30px;display:flex;align-items:center}.entrant-dot-wrap{width:30px;height:30px;display:grid;place-items:center;flex:0 0 30px}.entrant-number{margin-left:1px;padding:1px 4px;border:1px solid rgba(100,116,139,.75);border-radius:5px;background:rgba(255,255,255,.92);font-size:10px;line-height:14px;font-weight:800;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.entrant-dot{width:var(--dot-size);height:var(--dot-size);border-radius:50%;background:var(--green);border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.62)}.entrant-dot.delayed,.entrant-dot.stale{background:var(--orange)}.entrant-dot.stale{animation:wink 1.2s steps(2,end) infinite}.entrant-dot.past{background:var(--grey)}.entrant-dot.selected{background:var(--red);box-shadow:0 0 0 5px rgba(220,38,38,.28),0 1px 7px rgba(0,0,0,.7)}
+.centre-control a{width:34px!important;height:34px!important;line-height:32px!important;font-size:20px!important;font-weight:800!important;text-align:center}
+.history-dot{width:7px;height:7px;border-radius:50%;background:#111827;border:1px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.45);transform:translate(-50%,-50%)}@keyframes wink{0%,45%{opacity:1}50%,95%{opacity:.2}100%{opacity:1}}
+.fixed-card{position:absolute;left:12px;bottom:16px;z-index:900;width:min(360px,calc(100% - 24px));background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.22);padding:12px;display:none}.fixed-card.open{display:block}.fixed-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.fixed-title{font-weight:800}.fixed-detail{font-size:13px;line-height:1.5;margin-top:7px}.track-buttons{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}.track-buttons button{border:1px solid #9ca3af;background:#fff;border-radius:7px;min-height:34px;padding:5px 9px;font-size:12px;font-weight:700}.track-buttons button.active{background:#dbeafe;border-color:#60a5fa}
+.status-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #e5e7eb;font-size:13px}.status-row:last-child{border-bottom:0}
+@media(max-width:680px){
+#app{grid-template-rows:56px 1fr}
+header{grid-template-columns:repeat(3,1fr);padding:7px 8px}
+body.install-available header{grid-template-columns:repeat(4,1fr)}
+.title-wrap{display:none}
+.top-btn{width:100%;padding:6px 8px}
+.card-backdrop{padding:64px 10px max(10px,env(safe-area-inset-bottom));align-items:stretch}
+.card{width:100%;max-height:none;height:100%;padding:14px}
+#entrantsCard{height:100%;max-height:100%;overflow-y:auto}
+.fixed-card{left:7px;right:7px;bottom:calc(7px + env(safe-area-inset-bottom));width:auto}
+}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+<button id="entrantsBtn" class="top-btn primary">Entrants</button>
+<button id="settingsBtn" class="top-btn">Settings</button>
+<button id="installBtn" class="top-btn" type="button" hidden>Install</button>
+<div class="title-wrap"><div class="title">Tracking Monitor</div><div id="eventSub" class="sub">Loading shared event…</div></div>
+<button id="helpBtn" class="top-btn">Help</button>
+</header>
+<main>
+<div id="map"></div>
+<div id="mapStatus" hidden></div>
+
+<section id="fixedCard" class="fixed-card">
+  <div class="fixed-head"><div id="fixedTitle" class="fixed-title"></div><button id="fixedClose" class="close-btn">×</button></div>
+  <div id="fixedDetail" class="fixed-detail"></div>
+  <div id="trackButtons" class="track-buttons">
+    <button data-track="none" class="active">None</button><button data-track="5">5 min</button><button data-track="10">10 min</button><button data-track="all">All</button>
+  </div>
+</section>
+
+<div id="entrantsBackdrop" class="card-backdrop">
+<section id="entrantsCard" class="card">
+<div class="card-head"><h2>Entrants</h2><button class="close-btn" data-close="entrantsBackdrop">Close</button></div>
+<div id="eventPill" class="pill">Loading event…</div>
+<div class="menu-list">
+<button id="allEntrantsBtn" class="menu-btn active">All Entrants</button>
+<button id="controlsBtn" class="menu-btn">Controls</button>
+</div>
+<div id="controlWrap" hidden><div class="section-title">Controls</div><div id="controlList" class="menu-list"></div></div>
+<div id="entrantWrap"><div class="section-title">Entrants</div><div id="entrantList" class="menu-list"></div></div>
+</section>
+</div>
+
+<div id="settingsBackdrop" class="card-backdrop">
+<section class="card">
+<div class="card-head"><h2>Settings</h2><button class="close-btn" data-close="settingsBackdrop">Close</button></div>
+<div id="settingsPill" class="pill">Loading event…</div>
+<div class="setting-row"><div><strong>Dot size</strong><br><span style="font-size:12px;color:#64748b">Entrant marker size</span></div><div class="segmented" id="dotSizeButtons"><button data-size="S">S</button><button data-size="M" class="active">M</button><button data-size="L">L</button></div></div>
+<div class="setting-row"><div><strong>Marker label</strong></div><div class="segmented" id="labelButtons"><button data-label="none">None</button><button data-label="number" class="active">Number</button><button data-label="name">Number + Name</button></div></div>
+<div class="setting-row"><div><strong>Track</strong><br><span style="font-size:12px;color:#64748b">Default selected-entrant trail</span></div><div class="segmented" id="defaultTrackButtons"><button data-default-track="none" class="active">None</button><button data-default-track="5">5 min</button><button data-default-track="10">10 min</button></div></div>
+<div class="setting-row"><div><strong>Control zoom</strong><br><span style="font-size:12px;color:#64748b">Used in Controls View</span></div><div class="segmented"><button id="zoomDown">−</button><button id="zoomValue" disabled>16</button><button id="zoomUp">+</button></div></div>
+<div class="setting-row"><div><strong>Automatic refresh</strong><br><span style="font-size:12px;color:#64748b">Reads Google Tracking sheet</span></div><div><strong>15 seconds</strong></div></div>
+<div class="section-title">Tracking status</div>
+<div id="trackingStatusDetails">
+  <div class="status-row"><span>Reporting</span><strong id="reportingCount">0</strong></div>
+  <div class="status-row"><span>Last update</span><strong id="lastUpdateTime">—</strong></div>
+</div>
+<div class="section-title">Connection</div>
+<div id="connectionDetails"></div>
+</section>
+</div>
+
+<div id="helpBackdrop" class="card-backdrop">
+<section class="card">
+<div class="card-head"><h2>Help</h2><button class="close-btn" data-close="helpBackdrop">Close</button></div>
+<div class="pill">Tracking Monitor PWA v0.14</div>
+<div class="section-title">Overview</div>
+<p style="line-height:1.5;margin:0 0 10px">The page loads the uploaded rally route and entrants from the shared Tracking link, then reads the latest positions from the Google Tracking sheet every 15 seconds.</p>
+<div class="section-title">Main buttons</div>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Entrants</strong> opens All Entrants and Controls views.</p>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Settings</strong> controls marker size, marker labels, default trail length and Control zoom.</p>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Help</strong> opens this guide.</p>
+<div class="section-title">Entrant colours</div>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Green</strong> — current position.</p>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Orange</strong> — delayed or stale report.</p>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Grey</strong> — past the selected control.</p>
+<p style="line-height:1.5;margin:0 0 8px"><strong>Red</strong> — selected entrant.</p>
+<div class="section-title">Refreshing</div>
+<p style="line-height:1.5;margin:0 0 8px">Tracking data refreshes automatically every 15 seconds. No manual refresh is required.</p><p style="line-height:1.5;margin:0 0 8px">The map status pill appears only when a route, connection or tracking-read problem needs attention.</p>
+<div class="section-title">Install</div>
+<p style="line-height:1.5;margin:0">When opened in a browser, use the green <strong>Install</strong> button to add Tracking Monitor to the device. The last valid shared event configuration is retained for launching the installed app.</p>
+</section>
+</div>
+
+</main>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(()=>{
+'use strict';
+const VERSION='v0.14';
+const POLL_MS=15000;
+const state={config:null,event:null,routePoints:[],routeGeometry:[],controls:[],entrants:[],points:[],latest:new Map(),markers:new Map(),history:[],selected:null,selectedControl:null,track:'none',defaultTrack:'none',label:'number',dotSize:'M',controlZoom:16,timer:null};
+
+const $=id=>document.getElementById(id);
+const map=L.map('map',{zoomControl:true}).setView([-30.5,24.5],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+// v0.14 — after successful installation, clearly advise the user to close the browser page and open the installed Tracking Monitor app.
+// v0.13 — add explicit PWA Install control and retain the last valid shared event configuration for installed launches.
+// v0.12 — renamed/rebranded from TD6 Tracking Mobile PWA to Tracking Monitor PWA; function unchanged.
+// v0.10 — fixed display stack: route -> history -> control labels -> entrant markers/details.
+map.createPane('controlPane');
+map.getPane('controlPane').style.zIndex='610';
+map.createPane('entrantPane');
+map.getPane('entrantPane').style.zIndex='620';
+const routeLayer=L.layerGroup().addTo(map),controlLayer=L.layerGroup().addTo(map),entrantLayer=L.layerGroup().addTo(map),historyLayer=L.layerGroup().addTo(map);
+const CentreControl=L.Control.extend({
+  options:{position:'topleft'},
+  onAdd(){
+    const container=L.DomUtil.create('div','leaflet-bar centre-control');
+    const link=L.DomUtil.create('a','',container);
+    link.href='#';
+    link.title='Centre view';
+    link.setAttribute('aria-label','Centre view');
+    link.innerHTML='◎';
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.on(link,'click',L.DomEvent.stop)
+      .on(link,'click',()=>{
+        if(state.selected){
+          const p=state.latest.get(state.selected);
+          if(p) map.setView([p.latitude,p.longitude],16);
+          else fitAll();
+          return;
+        }
+        if(state.selectedControl){
+          map.setView([state.selectedControl.lat,state.selectedControl.lng],state.controlZoom);
+          return;
+        }
+        fitAll();
+      });
+    return container;
+  }
+});
+const centreControl=new CentreControl();
+centreControl.addTo(map);
+if(map.zoomControl){
+  map.zoomControl.remove();
+  map.zoomControl.addTo(map);
+}
+
+function setStatus(message,bad=false){
+  const pill=$('mapStatus');
+  if(!pill)return;
+  if(!bad){
+    pill.hidden=true;
+    pill.textContent='';
+    return;
+  }
+  pill.hidden=false;
+  pill.innerHTML=`<strong>ERROR:</strong> ${escapeHtml(message)}`;
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+const CONFIG_STORE_KEY='tracking_monitor_config_v1';
+function parseConfig(){
+  const raw=new URL(location.href).searchParams.get('config');
+  let cfg=null;
+  if(raw){
+    try{cfg=JSON.parse(raw);}catch(_){throw new Error('The Tracking link configuration is invalid.');}
+    if(!cfg.eventId||!cfg.webAppUrl||!cfg.key) throw new Error('The Tracking link is incomplete.');
+    try{localStorage.setItem(CONFIG_STORE_KEY,JSON.stringify(cfg));}catch(_){}
+    return cfg;
+  }
+  try{
+    const saved=localStorage.getItem(CONFIG_STORE_KEY);
+    if(saved) cfg=JSON.parse(saved);
+  }catch(_){cfg=null;}
+  if(!cfg) throw new Error('This link has no Tracking configuration.');
+  if(!cfg.eventId||!cfg.webAppUrl||!cfg.key) throw new Error('The saved Tracking configuration is incomplete.');
+  return cfg;
+}
+async function request(mode,extra={}){
+  const url=new URL(state.config.webAppUrl);
+  url.searchParams.set('mode',mode);url.searchParams.set('key',state.config.key);
+  Object.entries(extra).forEach(([k,v])=>{if(v!==''&&v!=null)url.searchParams.set(k,v);});
+  const response=await fetch(url.toString(),{cache:'no-store'});
+  const data=await response.json();
+  if(!data.ok) throw new Error(data.error||`${mode} failed.`);
+  return data;
+}
+function routeFromPackage(pkg){
+  const w=Array.isArray(pkg?.waypoints)?pkg.waypoints:[];
+  if(w.length) return w.map((p,i)=>({lat:Number(p.lat),lng:Number(p.lng),type:String(p.type||''),label:String(p.label||`WP ${i+1}`),note:String(p.note||''),distance:Number(p.cumulativeDistance??p.distance??0)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+  const rows=Array.isArray(pkg?.scheduleImport?.rows)?pkg.scheduleImport.rows:[];
+  return rows.map((p,i)=>({lat:Number(p.centre?.lat),lng:Number(p.centre?.lng),type:String(p.type||''),label:String(p.label||`WP ${i+1}`),note:String(p.note||''),distance:Number(p.distance||0)})).filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng));
+}
+function entrantName(e){return String(e.name||e.driverName||e.driver?.name||e.rallyNo||'Entrant');}
+function normaliseEntrants(arr){return (Array.isArray(arr)?arr:[]).map(e=>({rallyNo:String(e.rallyNo??e.id??''),name:entrantName(e)})).filter(e=>e.rallyNo);}
+function isControl(p){return /STC|CONTROL|MARSHAL|START STC/i.test(`${p.type} ${p.label}`);}
+function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),s=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+function projectProgress(point){
+  const path=state.routeGeometry.length>1?state.routeGeometry:state.routePoints;
+  if(path.length<2)return 0;
+  let best={d:Infinity,progress:0},cum=0;
+  for(let i=0;i<path.length-1;i++){
+    const a=path[i],b=path[i+1],refLat=(a.lat+b.lat)/2*Math.PI/180;
+    const x1=a.lng*Math.cos(refLat),y1=a.lat,x2=b.lng*Math.cos(refLat),y2=b.lat,x=point.lng*Math.cos(refLat),y=point.lat;
+    const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,len2?((x-x1)*dx+(y-y1)*dy)/len2:0));
+    const q={lat:y1+t*dy,lng:(x1+t*dx)/Math.cos(refLat)},d=haversine(point,q),seg=haversine(a,b);
+    if(d<best.d)best={d,progress:cum+t*seg};
+    cum+=seg;
+  }
+  return best.progress;
+}
+function pointStatus(p){
+  if(!p)return {key:'none',label:'No position'};
+  const age=(Date.now()-new Date(p.gpsTime).getTime())/1000;
+  if(age>180)return {key:'stale',label:'Stale'};
+  if(age>75)return {key:'delayed',label:'Delayed'};
+  return {key:'active',label:'Active'};
+}
+function markerHtml(e,p){
+  const s=pointStatus(p),selected=state.selected===e.rallyNo;
+  let label='';if(state.label==='number')label=e.rallyNo;else if(state.label==='name')label=`${e.rallyNo} ${e.name}`;
+  return `<div class="entrant-hit"><div class="entrant-dot-wrap"><div class="entrant-dot ${s.key} ${selected?'selected':''}"></div></div>${label?`<div class="entrant-number">${escapeHtml(label)}</div>`:''}</div>`;
+}
+async function drawRoute(){
+  routeLayer.clearLayers();controlLayer.clearLayers();
+  if(!state.routePoints.length)return;
+
+  const waypointLatLngs=state.routePoints.map(p=>[p.lat,p.lng]);
+  state.routeGeometry=[];
+
+  try{
+    const coords=state.routePoints.map(p=>`${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(';');
+    const url=`https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=false`;
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)throw new Error(`OSRM HTTP ${response.status}`);
+    const data=await response.json();
+    const coordsOut=data.routes?.[0]?.geometry?.coordinates;
+    if(!Array.isArray(coordsOut)||coordsOut.length<2)throw new Error('No OSRM route geometry');
+    state.routeGeometry=coordsOut.map(c=>({lat:Number(c[1]),lng:Number(c[0])}));
+    L.polyline(state.routeGeometry.map(p=>[p.lat,p.lng]),{weight:3,opacity:.8,lineCap:'round',lineJoin:'round'}).addTo(routeLayer);
+    setStatus('',false);
+  }catch(err){
+    state.routeGeometry=state.routePoints.map(p=>({lat:p.lat,lng:p.lng}));
+    L.polyline(waypointLatLngs,{weight:4,opacity:.82,dashArray:'7 6',lineCap:'round',lineJoin:'round'}).addTo(routeLayer);
+    setStatus(`OSRM route unavailable — waypoint line shown (${err.message})`,true);
+  }
+
+  let controlNo=0;
+  state.controls=state.routePoints
+    .map((p,i)=>({...p,index:i}))
+    .filter(isControl)
+    .map(p=>({...p,label:/STC/i.test(`${p.type} ${p.label}`)?`STC ${++controlNo}`:(p.label||`Control ${++controlNo}`),progress:projectProgress(p)}));
+
+  state.controls.forEach((c,i)=>L.marker([c.lat,c.lng],{pane:'controlPane',interactive:false,icon:L.divIcon({className:'',html:`<div class="control-icon">${escapeHtml(c.label||`C${i+1}`)}</div>`,iconSize:[44,22],iconAnchor:[22,11]})}).addTo(controlLayer));
+}
+function fitAll(){
+  const path=state.routeGeometry.length?state.routeGeometry:state.routePoints;
+  const pts=path.map(p=>[p.lat,p.lng]);
+  state.latest.forEach(p=>pts.push([p.latitude,p.longitude]));
+  if(pts.length)map.fitBounds(pts,{padding:[25,25],maxZoom:16});
+}
+function renderEntrants(){
+  entrantLayer.clearLayers();state.markers.clear();
+  state.entrants.forEach(e=>{
+    const p=state.latest.get(e.rallyNo);if(!p)return;
+    let past=false;
+    if(state.selectedControl)past=projectProgress({lat:p.latitude,lng:p.longitude})>state.selectedControl.progress;
+    const icon=L.divIcon({className:'',html:markerHtml(e,p).replace(`entrant-dot ${pointStatus(p).key}`,`entrant-dot ${past?'past':pointStatus(p).key}`),iconSize:[90,30],iconAnchor:[15,15]});
+    const m=L.marker([p.latitude,p.longitude],{pane:'entrantPane',icon}).addTo(entrantLayer).on('click',()=>selectEntrant(e.rallyNo));
+    state.markers.set(e.rallyNo,m);
+  });
+  renderLists();renderSelected();renderHistory();
+}
+function renderLists(){
+  $('entrantList').innerHTML=state.entrants.map(e=>{
+    const p=state.latest.get(e.rallyNo),s=pointStatus(p);
+    return `<button class="menu-btn" data-entrant="${escapeHtml(e.rallyNo)}">${escapeHtml(e.rallyNo)} — ${escapeHtml(e.name)}<br><span style="font-size:12px;color:#64748b">${escapeHtml(s.label)}</span></button>`;
+  }).join('')||'<div class="placeholder">No entrants were included in the uploaded event.</div>';
+  $('controlList').innerHTML=state.controls.map((c,i)=>`<button class="menu-btn" data-control="${i}">${escapeHtml(c.label||`Control ${i+1}`)}</button>`).join('')||'<div class="placeholder">No controls were found in the uploaded route.</div>';
+  document.querySelectorAll('[data-entrant]').forEach(b=>b.onclick=()=>selectEntrant(b.dataset.entrant));
+  document.querySelectorAll('[data-control]').forEach(b=>b.onclick=()=>selectControl(state.controls[Number(b.dataset.control)]));
+}
+function selectEntrant(no){state.selected=no;state.selectedControl=null;state.track=state.defaultTrack;document.querySelectorAll('[data-track]').forEach(x=>x.classList.toggle('active',x.dataset.track===state.track));$('entrantsBackdrop').classList.remove('open');renderEntrants();const p=state.latest.get(no);if(p)map.setView([p.latitude,p.longitude],16);}
+function selectControl(c){state.selectedControl=c;state.selected=null;$('entrantsBackdrop').classList.remove('open');renderEntrants();map.setView([c.lat,c.lng],state.controlZoom);setStatus(`Control view — ${c.label}`);}
+function renderSelected(){
+  const e=state.entrants.find(x=>x.rallyNo===state.selected),p=e&&state.latest.get(e.rallyNo);
+  if(!e){$('fixedCard').classList.remove('open');return;}
+  $('fixedCard').classList.add('open');$('fixedTitle').textContent=`${e.rallyNo} — ${e.name}`;
+  if(!p){$('fixedDetail').textContent='No position received.';return;}
+  const s=pointStatus(p),gps=new Date(p.gpsTime);
+  $('fixedDetail').innerHTML=`Status: <strong>${escapeHtml(s.label)}</strong><br>GPS time: ${escapeHtml(gps.toLocaleTimeString())}<br>Speed: ${p.speedKph===''||p.speedKph==null?'—':Number(p.speedKph).toFixed(1)+' km/h'}<br>Accuracy: ${p.accuracy===''||p.accuracy==null?'—':Number(p.accuracy).toFixed(1)+' m'}`;
+}
+function renderHistory(){
+  historyLayer.clearLayers();if(!state.selected||state.track==='none')return;
+  const all=state.points.filter(p=>p.rallyNo===state.selected).sort((a,b)=>new Date(a.gpsTime)-new Date(b.gpsTime));
+  let pts=all;if(state.track!=='all'){const mins=Number(state.track),cut=Date.now()-mins*60000;pts=all.filter(p=>new Date(p.gpsTime).getTime()>=cut);}
+  pts.slice(0,-1).forEach(p=>L.marker([p.latitude,p.longitude],{interactive:false,icon:L.divIcon({className:'history-dot',iconSize:[7,7],iconAnchor:[3.5,3.5]})}).addTo(historyLayer));
+}
+async function loadEvent(){
+  state.config=parseConfig();
+  const data=await request('trackingEventRead',{eventId:state.config.eventId});
+  state.event=data.event;state.routePoints=routeFromPackage(state.event.routeData);state.entrants=normaliseEntrants(state.event.entrants);
+  const header=state.event.pageHeader||`${state.event.rallyTitle} — ${state.event.day} — ${state.event.route}`;
+  $('eventSub').textContent=header;$('eventPill').textContent=header;$('settingsPill').textContent=header;
+  $('connectionDetails').innerHTML=`<div class="status-row"><span>Event ID</span><strong>${escapeHtml(state.event.eventId)}</strong></div><div class="status-row"><span>Page version</span><strong>${VERSION}</strong></div>`;
+  await drawRoute();renderLists();fitAll();
+}
+async function readTracking(){
+  const data=await request('trackingRead',{eventId:state.event.eventId,day:state.event.day,route:state.event.route,limit:5000});
+  state.points=Array.isArray(data.points)?data.points:[];
+  state.latest.clear();state.points.forEach(p=>state.latest.set(String(p.rallyNo),p));
+  renderEntrants();
+  $('reportingCount').textContent=String(state.latest.size);
+  $('lastUpdateTime').textContent=new Date().toLocaleTimeString();
+  setStatus('',false);
+}
+async function refresh(){
+  try{await readTracking();}catch(err){setStatus(err.message,true);}
+}
+async function start(){
+  try{await loadEvent();await refresh();state.timer=setInterval(refresh,POLL_MS);}
+  catch(err){setStatus(err.message,true);$('entrantList').innerHTML=`<div class="placeholder">${escapeHtml(err.message)}</div>`;}
+}
+$('entrantsBtn').onclick=()=>{$('entrantsBackdrop').classList.add('open');};
+$('settingsBtn').onclick=()=>{$('settingsBackdrop').classList.add('open');};
+$('helpBtn').onclick=()=>{$('helpBackdrop').classList.add('open');};
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$(b.dataset.close).classList.remove('open'));
+$('fixedClose').onclick=()=>{state.selected=null;renderEntrants();};
+$('allEntrantsBtn').onclick=()=>{state.selectedControl=null;state.selected=null;$('controlWrap').hidden=true;$('entrantWrap').hidden=false;$('allEntrantsBtn').classList.add('active');$('controlsBtn').classList.remove('active');renderEntrants();fitAll();};
+$('controlsBtn').onclick=()=>{$('controlWrap').hidden=false;$('entrantWrap').hidden=true;$('controlsBtn').classList.add('active');$('allEntrantsBtn').classList.remove('active');};
+$('trackButtons').onclick=e=>{const b=e.target.closest('[data-track]');if(!b)return;state.track=b.dataset.track;document.querySelectorAll('[data-track]').forEach(x=>x.classList.toggle('active',x===b));renderHistory();};
+$('labelButtons').onclick=e=>{const b=e.target.closest('[data-label]');if(!b)return;state.label=b.dataset.label;document.querySelectorAll('[data-label]').forEach(x=>x.classList.toggle('active',x===b));renderEntrants();};
+$('dotSizeButtons').onclick=e=>{const b=e.target.closest('[data-size]');if(!b)return;state.dotSize=b.dataset.size;const px=state.dotSize==='S'?11:state.dotSize==='L'?18:14;document.documentElement.style.setProperty('--dot-size',`${px}px`);document.querySelectorAll('[data-size]').forEach(x=>x.classList.toggle('active',x===b));renderEntrants();};
+$('defaultTrackButtons').onclick=e=>{const b=e.target.closest('[data-default-track]');if(!b)return;state.defaultTrack=b.dataset.defaultTrack;document.querySelectorAll('[data-default-track]').forEach(x=>x.classList.toggle('active',x===b));};
+$('zoomDown').onclick=()=>{state.controlZoom=Math.max(12,state.controlZoom-1);$('zoomValue').textContent=state.controlZoom;if(state.selectedControl)map.setZoom(state.controlZoom);};
+$('zoomUp').onclick=()=>{state.controlZoom=Math.min(19,state.controlZoom+1);$('zoomValue').textContent=state.controlZoom;if(state.selectedControl)map.setZoom(state.controlZoom);};
+start();
+
+// PWA installation.
+let deferredInstallPrompt=null;
+const installBtn=$('installBtn');
+const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone===true;
+
+function setInstallAvailable(show){
+  if(!installBtn)return;
+  installBtn.hidden=!show;
+  document.body.classList.toggle('install-available',show);
+}
+
+if(!standalone) setInstallAvailable(true);
+
+window.addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();
+  deferredInstallPrompt=event;
+  setInstallAvailable(true);
+});
+
+window.addEventListener('appinstalled',()=>{
+  deferredInstallPrompt=null;
+  setInstallAvailable(false);
+  setTimeout(()=>{
+    alert('Tracking Monitor has been installed.\n\nClose this browser page and open the installed Tracking Monitor app.');
+  },150);
+});
+
+installBtn.addEventListener('click',async()=>{
+  if(deferredInstallPrompt){
+    deferredInstallPrompt.prompt();
+    try{await deferredInstallPrompt.userChoice;}catch(_){}
+    deferredInstallPrompt=null;
+    return;
+  }
+  alert('If the install prompt is not available yet, open the browser menu and choose “Install app” or “Add to Home screen”.');
+});
+
+// Keep the shared monitor available as an installed PWA shell.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+  });
+}
+})();
+</script>
+</body>
+</html>
